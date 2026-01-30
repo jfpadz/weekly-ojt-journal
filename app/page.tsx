@@ -18,6 +18,7 @@ import {
   Trash2,
   Lock
 } from 'lucide-react';
+import type { LogEntry, ViewType, SyncStatus } from '@/types';
 
 // --- Utility Functions ---
 
@@ -35,23 +36,13 @@ const formatTime = (isoString: string | null) => {
   return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// --- Types ---
-type LogEntry = {
-  amIn?: string | null;
-  amOut?: string | null;
-  pmIn?: string | null;
-  pmOut?: string | null;
-  activity?: string;
-  accomplished?: string;
-};
-
 // --- Main Component ---
 
 export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [view, setView] = useState<'calendar' | 'logger' | 'report' | 'syncing'>('calendar');
-  const [syncStatus, setSyncStatus] = useState({ db: 'waiting', sheet: 'waiting' });
+  const [view, setView] = useState<ViewType>('calendar');
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ db: 'waiting', sheet: 'waiting' });
   const [isLoading, setIsLoading] = useState(true);
   
   // Local State Store

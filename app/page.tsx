@@ -19,22 +19,7 @@ import {
   Lock
 } from 'lucide-react';
 import type { LogEntry, ViewType, SyncStatus } from '@/types';
-
-// --- Utility Functions ---
-
-const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-const isSameDay = (d1: Date, d2: Date) => {
-  return d1.getFullYear() === d2.getFullYear() &&
-         d1.getMonth() === d2.getMonth() &&
-         d1.getDate() === d2.getDate();
-};
-
-const formatTime = (isoString: string | null) => {
-  if (!isoString) return "--:--";
-  return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+import { getDaysInMonth, getFirstDayOfMonth, isSameDay, formatTime } from '@/lib/utils';
 
 // --- Main Component ---
 

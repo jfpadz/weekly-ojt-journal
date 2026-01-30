@@ -3,21 +3,17 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle2, 
-  Sun, 
-  Sunset, 
   BookOpen, 
-  ArrowLeft,
   Loader2,
   Layout,
-  X,
-  Trash2,
-  Lock
+  Trash2
 } from 'lucide-react';
 import type { LogEntry, ViewType } from '@/types';
 import { isSameDay } from '@/lib/utils';
 import { useLogs } from '@/hooks/useLogs';
 import { SyncStatusView } from '@/components/sync/SyncStatusView';
 import { CalendarView } from '@/components/calendar/CalendarView';
+import { LoggerView } from '@/components/logger/LoggerView';
 
 // --- Main Component ---
 
@@ -150,103 +146,6 @@ export default function Home() {
 }
 
 // --- Sub-Components ---
-
-function LoggerView({ date, log, onPunch, onClear, onBack, onGoToReport }: any) {
-  // Check if the selected date is strictly Today
-  const isToday = isSameDay(date, new Date());
-
-  return (
-    <div className="p-6 sm:p-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={onBack} className="flex items-center text-sm text-slate-400 hover:text-indigo-600 transition-colors group">
-            <ArrowLeft size={16} className="mr-1 group-hover:-translate-x-1 transition-transform" /> Back
-        </button>
-        {(log.pmOut || log.activity) && (
-            <button onClick={onGoToReport} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
-                {isToday ? "Edit Report →" : "View Report →"}
-            </button>
-        )}
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-slate-800 mb-2">{date.toLocaleDateString('en-US', { weekday: 'long' })}</h2>
-        <div className="flex items-center gap-3">
-           <p className="text-slate-500">{date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
-           {!isToday && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-medium">Read Only</span>}
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4 text-amber-500">
-            <Sun size={20} /><h3 className="font-semibold text-slate-700">Morning Session</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <TimeCard label="Time In" value={log.amIn} active={!log.amIn} onClick={() => onPunch('amIn')} onClear={() => onClear('amIn')} isReadOnly={!isToday} />
-            <TimeCard label="Time Out" value={log.amOut} active={log.amIn && !log.amOut} onClick={() => onPunch('amOut')} onClear={() => onClear('amOut')} isReadOnly={!isToday} />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4 text-indigo-500">
-            <Sunset size={20} /><h3 className="font-semibold text-slate-700">Afternoon Session</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-             <TimeCard label="Time In" value={log.pmIn} active={log.amOut && !log.pmIn} onClick={() => onPunch('pmIn')} onClear={() => onClear('pmIn')} isReadOnly={!isToday} />
-             <TimeCard label="Time Out" value={log.pmOut} active={log.pmIn && !log.pmOut} onClick={() => onPunch('pmOut')} onClear={() => onClear('pmOut')} isLastStep={true} isReadOnly={!isToday} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TimeCard({ label, value, active, onClick, onClear, isLastStep, isReadOnly }: any) {
-  const isTimeLocked = value ? (new Date().getTime() - new Date(value).getTime() > 3600000) : false;
-  // Strictly lock interactions if it's not Today OR if time is locked (older than 1h)
-  const isInteractionDisabled = isReadOnly || isTimeLocked;
-
-  return (
-    <div className={`relative flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200
-        ${value 
-          ? 'bg-slate-50 border-slate-200' 
-          : active && !isReadOnly
-            ? 'bg-white border-indigo-200 hover:border-indigo-400 hover:shadow-md cursor-pointer' 
-            : 'bg-slate-50/50 border-slate-100 opacity-60'
-        }
-    `} onClick={(!value && active && !isReadOnly) ? onClick : undefined}>
-      
-      {/* Undo Button (Only if value exists AND editable) */}
-      {value && !isInteractionDisabled && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="absolute -top-2 -right-2 p-1 bg-white border border-red-100 rounded-full shadow-sm text-red-400 hover:text-red-600 hover:bg-red-50 z-10"
-            title="Clear this time"
-          >
-              <X size={14} />
-          </button>
-      )}
-
-      {/* Lock Indicator */}
-      {value && isInteractionDisabled && (
-        <div className="absolute top-2 right-2 text-slate-300" title="Locked">
-           <Lock size={12} />
-        </div>
-      )}
-
-      <span className="text-xs uppercase font-bold tracking-wider text-slate-400 mb-2">{label}</span>
-      {value ? (
-        <span className="text-xl font-mono font-semibold text-slate-700 flex items-center">
-          {formatTime(value)}
-          <CheckCircle2 size={16} className="ml-2 text-emerald-500" />
-        </span>
-      ) : (
-        <span className={`text-sm font-medium ${active && !isReadOnly ? 'text-indigo-600' : 'text-slate-300'}`}>
-           {active && !isReadOnly ? (isLastStep ? "Finish Day" : "Punch Now") : "Waiting..."}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function FormView({ title, subtitle, icon, onSubmit, existingData, onCancel, theme = 'indigo', isReadOnly }: any) {
   const [formData, setFormData] = useState(existingData || { activity: '', accomplished: '' });

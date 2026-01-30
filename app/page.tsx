@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -18,8 +18,9 @@ import {
   Trash2,
   Lock
 } from 'lucide-react';
-import type { LogEntry, ViewType, SyncStatus } from '@/types';
+import type { LogEntry, ViewType } from '@/types';
 import { getDaysInMonth, getFirstDayOfMonth, isSameDay, formatTime } from '@/lib/utils';
+import { useLogs } from '@/hooks/useLogs';
 
 // --- Main Component ---
 
@@ -27,41 +28,16 @@ export default function Home() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [view, setView] = useState<ViewType>('calendar');
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ db: 'waiting', sheet: 'waiting' });
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Local State Store
-  const [logs, setLogs] = useState<Record<string, LogEntry>>({});
 
-  // --- Load Data on Mount (Via API) ---
-  useEffect(() => {
-    const fetchLogs = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/get-logs');
-        const { data } = await res.json();
-        
-        if (data) {
-          const formattedLogs: Record<string, LogEntry> = {};
-          data.forEach((row: any) => {
-            formattedLogs[row.date_key] = {
-              amIn: row.am_in,
-              amOut: row.am_out,
-              pmIn: row.pm_in,
-              pmOut: row.pm_out,
-              activity: row.activity,
-              accomplished: row.accomplished
-            };
-          });
-          setLogs(formattedLogs);
-        }
-      } catch (error) {
-        console.error("Failed to load logs:", error);
-      }
-      setIsLoading(false);
-    };
-    fetchLogs();
-  }, []);
+  // Use the custom hook for logs management
+  const { 
+    logs, 
+    isLoading, 
+    syncStatus, 
+    handleTimePunch, 
+    handleTimeClear, 
+    handleReportSubmit 
+  } = useLogs();
 
   // Navigation
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -88,96 +64,21 @@ export default function Home() {
     }
   };
 
-  const updateLog = (key: keyof LogEntry, value: any) => {
-    if (!selectedDate) return;
-    const dateKey = selectedDate.toDateString();
-    const currentLog = logs[dateKey] || { 
-      amIn: null, amOut: null, pmIn: null, pmOut: null, 
-      activity: '', accomplished: '' 
-    };
-
-    let updatedLog;
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        updatedLog = { ...currentLog, ...value };
-    } else {
-        updatedLog = { ...currentLog, [key]: value };
-    }
-    
-    setLogs({ ...logs, [dateKey]: updatedLog });
-    return updatedLog;
+  // Wrapper handlers that pass selectedDate
+  const onTimePunch = (type: keyof LogEntry) => {
+    handleTimePunch(selectedDate, type, () => setView('report'));
   };
 
-  // --- Save Logic (Handles Add, Update, & Delete) ---
-  const saveToBackend = async (payload: any) => {
-     if (!selectedDate) return;
-     try {
-        await fetch('/api/save-log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                dateKey: selectedDate.toDateString(),
-                ...payload
-            }),
-        });
-     } catch (e) { console.error("Save failed", e); }
+  const onTimeClear = (type: keyof LogEntry) => {
+    handleTimeClear(selectedDate, type);
   };
 
-  const handleTimePunch = async (type: keyof LogEntry) => {
-    const now = new Date().toISOString();
-    updateLog(type, now);
-    saveToBackend({ [type]: now }); // Silent Save
-
-    if (type === 'pmOut') {
-      setTimeout(() => setView('report'), 800); 
-    }
-  };
-
-  const handleTimeClear = async (type: keyof LogEntry) => {
-    if(!confirm("Are you sure you want to clear this time?")) return;
-    
-    updateLog(type, null);
-    saveToBackend({ [type]: null }); // Send null to delete from DB
-  };
-
-  const handleReportSubmit = async (formData: { activity: string, accomplished: string } | null) => {
-    if (!selectedDate) return;
-    
-    // If null, we are deleting the report
-    const finalData = formData || { activity: '', accomplished: '' };
-
-    updateLog('activity', finalData.activity);
-    const dateKey = selectedDate.toDateString();
-    const currentLog = logs[dateKey] || {};
-    const fullLog = { ...currentLog, ...finalData };
-    setLogs(prev => ({ ...prev, [dateKey]: fullLog }));
-    
-    setView('syncing');
-    setSyncStatus({ db: 'loading', sheet: 'loading' });
-
-    try {
-      const response = await fetch('/api/save-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dateKey: selectedDate.toDateString(),
-          ...fullLog 
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setSyncStatus({ db: 'success', sheet: 'success' });
-        await new Promise(r => setTimeout(r, 1500)); 
-        setView('calendar');
-      } else {
-        alert('Error saving: ' + result.error);
-        setView('report'); 
-      }
-    } catch (e) {
-      alert('Network Error');
-      setView('report');
-    }
+  const onReportSubmit = (formData: { activity: string; accomplished: string } | null) => {
+    handleReportSubmit(selectedDate, formData, {
+      onSyncStart: () => setView('syncing'),
+      onSuccess: () => setView('calendar'),
+      onError: () => setView('report'),
+    });
   };
 
   return (
@@ -219,8 +120,8 @@ export default function Home() {
             <LoggerView 
               date={selectedDate} 
               log={logs[selectedDate.toDateString()] || {}} 
-              onPunch={handleTimePunch}
-              onClear={handleTimeClear} 
+              onPunch={onTimePunch}
+              onClear={onTimeClear} 
               onBack={goHome}
               onGoToReport={() => setView('report')}
             />
@@ -231,7 +132,7 @@ export default function Home() {
               title="Daily Accomplishment"
               subtitle="Fill in your activity and milestones for the day."
               icon={<CheckCircle2 className="text-emerald-500" />}
-              onSubmit={handleReportSubmit}
+              onSubmit={onReportSubmit}
               existingData={{
                   activity: logs[selectedDate.toDateString()]?.activity || '',
                   accomplished: logs[selectedDate.toDateString()]?.accomplished || ''
